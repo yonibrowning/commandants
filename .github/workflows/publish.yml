@@ -1,16 +1,25 @@
 name: Publish to PyPI
 
-# Publishes on a GitHub Release (recommended) or a pushed version tag.
-# Uses PyPI Trusted Publishing (OIDC) -- no API token/secret required. Configure
-# the trusted publisher once at https://pypi.org/manage/project/commandants/settings/publishing/
-# (workflow: publish.yml, environment: pypi).
+# SAFETY: automatic publishing is DISABLED while the package is still being
+# tested. This workflow runs only when triggered manually from the Actions tab,
+# and even then the upload step runs only if you type "publish" in the confirm
+# box. There is no `release:` or tag trigger, so cutting a GitHub Release or
+# pushing a tag will NOT publish anything.
+#
+# When you are ready to publish for real:
+#   1. Configure PyPI Trusted Publishing (once) at
+#      https://pypi.org/manage/account/publishing/  -- project: commandants,
+#      owner: yonibrowning, repo: commandants, workflow: publish.yml,
+#      environment: pypi.
+#   2. Optionally re-enable the `release:` trigger below for hands-off releases.
 
 on:
-  release:
-    types: [published]
-  push:
-    tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "publish" to upload to PyPI. Anything else = build only.'
+        required: true
+        default: "build-only"
 
 jobs:
   build:
@@ -41,6 +50,8 @@ jobs:
   publish:
     name: Publish to PyPI
     needs: build
+    # Only publish on an explicit, typed confirmation from the manual trigger.
+    if: ${{ github.event.inputs.confirm == 'publish' }}
     runs-on: ubuntu-latest
     environment:
       name: pypi
