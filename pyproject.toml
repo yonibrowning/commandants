@@ -29,8 +29,8 @@ io = ["numpy>=1.21", "nibabel>=3.2"]
 dev = ["pytest>=7.0"]
 
 [project.urls]
-Homepage = "https://github.com/yoni-browning/commandants"
-Issues = "https://github.com/yoni-browning/commandants/issues"
+Homepage = "https://github.com/yonibrowning/commandants"
+Issues = "https://github.com/yonibrowning/commandants/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]
