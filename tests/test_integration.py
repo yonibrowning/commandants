@@ -1,0 +1,97 @@
+"""Integration smoke tests -- skipped unless ANTs binaries are on the system.
+
+These actually invoke ANTs on tiny synthetic images. On a machine without ANTs
+(or without numpy/nibabel) they skip cleanly.
+"""
+
+from __future__ import annotations
+
+import shutil
+
+import pytest
+
+from commandants import (
+    AntsApplyTransforms,
+    AntsRegistration,
+    Convergence,
+    MI,
+    N4BiasFieldCorrection,
+    Rigid,
+)
+
+pytestmark = pytest.mark.skipif(
+    shutil.which("antsRegistration") is None,
+    reason="ANTs binaries not found on PATH; skipping integration tests.",
+)
+
+nib = pytest.importorskip("nibabel")
+np = pytest.importorskip("numpy")
+
+
+def _write_blob(path, shift=0):
+    """Write a small 2D image with a bright square, optionally shifted."""
+    arr = np.zeros((64, 64), dtype=np.float32)
+    arr[20 + shift : 40 + shift, 20 + shift : 40 + shift] = 100.0
+    nib.save(nib.Nifti1Image(arr, affine=np.eye(4)), str(path))
+    return str(path)
+
+
+def test_rigid_registration_produces_outputs(tmp_path):
+    fixed = _write_blob(tmp_path / "fixed.nii.gz", shift=0)
+    moving = _write_blob(tmp_path / "moving.nii.gz", shift=5)
+    prefix = str(tmp_path / "out_")
+    warped = str(tmp_path / "warped.nii.gz")
+
+    reg = AntsRegistration(2, output=prefix, warped_output=warped, verbose=False)
+    reg.initialize_from_images(fixed, moving, init="center-of-mass")
+    reg.add_stage(
+        transform=Rigid(0.1),
+        metrics=MI(fixed, moving, bins=32, sampling="Regular", sampling_pct=0.5),
+        convergence=Convergence([100, 50, 25], threshold=1e-6, window=10),
+        shrink_factors=[4, 2, 1],
+        smoothing_sigmas=[2, 1, 0],
+    )
+    result = reg.run()
+    assert result.returncode == 0
+    import os
+
+    assert os.path.exists(warped)
+    assert os.path.exists(prefix + "0GenericAffine.mat")
+
+
+def test_apply_transforms_round_trip(tmp_path):
+    fixed = _write_blob(tmp_path / "fixed.nii.gz", shift=0)
+    moving = _write_blob(tmp_path / "moving.nii.gz", shift=5)
+    prefix = str(tmp_path / "out_")
+
+    reg = AntsRegistration(2, output=prefix, verbose=False)
+    reg.initialize_from_images(fixed, moving, init="center-of-mass")
+    reg.add_stage(
+        transform=Rigid(0.1),
+        metrics=MI(fixed, moving, bins=32, sampling="Regular", sampling_pct=0.5),
+        convergence=Convergence([100, 50, 25]),
+        shrink_factors=[4, 2, 1],
+        smoothing_sigmas=[2, 1, 0],
+    )
+    reg.run()
+
+    out = str(tmp_path / "applied.nii.gz")
+    apply = AntsApplyTransforms(2, moving, fixed, out, interpolation="Linear")
+    apply.add_transform(prefix + "0GenericAffine.mat")
+    result = apply.run()
+    assert result.returncode == 0
+    import os
+
+    assert os.path.exists(out)
+
+
+def test_n4_produces_output(tmp_path):
+    raw = _write_blob(tmp_path / "raw.nii.gz", shift=0)
+    out = str(tmp_path / "n4.nii.gz")
+    result = N4BiasFieldCorrection(
+        2, raw, out, shrink_factor=2, convergence_iterations=[20, 20], convergence_threshold=0.0
+    ).run()
+    assert result.returncode == 0
+    import os
+
+    assert os.path.exists(out)

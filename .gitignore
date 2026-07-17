@@ -1,0 +1,47 @@
+# Byte-compiled / optimized / cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+*.egg
+.eggs/
+wheels/
+
+# Editable-install / build artifacts
+src/*.egg-info/
+
+# Test / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Editors / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Type checkers
+.mypy_cache/
+.ruff_cache/
+
+# ANTs outputs commonly produced while experimenting
+*.nii.gz
+*.nii
+*.mat
+*Warp.nii.gz
+*InverseWarp.nii.gz
+*Composite.h5

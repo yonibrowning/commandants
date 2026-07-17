@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "commandants"
+version = "0.1.0"
+description = "A thin, transparent Python wrapper for the ANTs command-line tools (commandANTs)."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Yoni Browning" }]
+keywords = ["ANTs", "registration", "neuroimaging", "medical-imaging", "wrapper", "CLI"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Medical Science Apps.",
+]
+# Zero required runtime dependencies: the core only shells out to ANTs.
+dependencies = []
+
+[project.optional-dependencies]
+io = ["numpy>=1.21", "nibabel>=3.2"]
+dev = ["pytest>=7.0"]
+
+[project.urls]
+Homepage = "https://github.com/yoni-browning/commandants"
+Issues = "https://github.com/yoni-browning/commandants/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
