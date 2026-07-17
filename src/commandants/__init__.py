@@ -29,6 +29,7 @@ from .core import (
     resolve_binary,
     version,
 )
+from .io import TempWorkspace, is_sitk_image, read_points, write_points
 from .preprocessing import (
     ImageMath,
     N4BiasFieldCorrection,
@@ -80,6 +81,11 @@ __all__ = [
     "resolve_binary",
     "is_available",
     "version",
+    # in-memory images + point I/O
+    "TempWorkspace",
+    "is_sitk_image",
+    "read_points",
+    "write_points",
     # registration builders
     "AntsRegistration",
     "AntsApplyTransforms",

@@ -54,6 +54,18 @@ def xjoin(values: Iterable[Any]) -> str:
     return "x".join(fmt_value(v) for v in values)
 
 
+def str_resolve(value: Any, name: str | None = None) -> str:
+    """Default image resolver: just stringify.
+
+    Command builders pass a smarter resolver (one that writes in-memory SimpleITK
+    images to temp files) during a real run; this identity-like fallback is used
+    when a metric/transform renders on its own or when no in-memory images are
+    involved. The ``name`` argument is accepted (and ignored) so it shares the
+    resolver call signature.
+    """
+    return fmt_value(value)
+
+
 def as_sequence(value: Any) -> Sequence[Any]:
     """Coerce a scalar-or-sequence into a list; leave existing sequences alone.
 

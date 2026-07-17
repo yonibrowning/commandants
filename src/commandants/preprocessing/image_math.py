@@ -20,7 +20,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, List, Optional, Union
 
-from ..core.params import fmt_value
 from ..core.runner import AntsCommand
 
 PathLike = Union[str, Path]
@@ -65,7 +64,8 @@ class ImageMath(AntsCommand):
             str(self.output_image),
             str(self.operation),
         ]
-        args += [fmt_value(op) for op in self.operands]
+        # Operands may be image paths, in-memory images, or numeric parameters.
+        args += [self._resolve(op, f"operand{i}") for i, op in enumerate(self.operands)]
         return args
 
     def declared_outputs(self) -> dict:

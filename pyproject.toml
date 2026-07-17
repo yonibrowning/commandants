@@ -25,8 +25,9 @@ classifiers = [
 dependencies = []
 
 [project.optional-dependencies]
-io = ["numpy>=1.21", "nibabel>=3.2"]
-dev = ["pytest>=7.0"]
+# In-memory image support (pass/receive SimpleITK images; result.load()).
+io = ["SimpleITK>=2.2", "numpy>=1.21"]
+dev = ["pytest>=7.0", "SimpleITK>=2.2", "numpy>=1.21"]
 
 [project.urls]
 Homepage = "https://github.com/yonibrowning/commandants"

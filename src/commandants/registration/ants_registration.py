@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import List, Optional, Sequence, Union
+from typing import Any, List, Optional, Sequence, Tuple, Union
 
 from ..core.params import bracket, xjoin
 from ..core.runner import AntsCommand
@@ -99,9 +99,11 @@ class AntsRegistration(AntsCommand):
         self.write_interval_volumes = write_interval_volumes
         self.verbose = verbose
 
-        self._initial_transforms: List[str] = []
-        self._fixed_mask: Optional[PathLike] = None
-        self._moving_mask: Optional[PathLike] = None
+        # Stored raw (not pre-rendered) so in-memory images resolve at run time.
+        # ("images", fixed, moving, feature) or ("file", transform, use_inverse).
+        self._initial_transforms: List[Tuple[Any, ...]] = []
+        self._fixed_mask: Optional[Any] = None
+        self._moving_mask: Optional[Any] = None
         self.stages: List[Stage] = []
 
     # -- initial transforms ---------------------------------------------------
@@ -125,17 +127,14 @@ class AntsRegistration(AntsCommand):
             feature = _INIT_FEATURES[init]
         else:
             feature = int(init)
-        self._initial_transforms.append(bracket(fixed, moving, feature))
+        self._initial_transforms.append(("images", fixed, moving, feature))
         return self
 
     def add_initial_moving_transform(
         self, transform: PathLike, use_inverse: bool = False
     ) -> "AntsRegistration":
         """Prepend an existing transform file as the initial moving transform."""
-        if use_inverse:
-            self._initial_transforms.append(bracket(transform, True))
-        else:
-            self._initial_transforms.append(str(transform))
+        self._initial_transforms.append(("file", transform, use_inverse))
         return self
 
     # -- masks ----------------------------------------------------------------
@@ -226,14 +225,27 @@ class AntsRegistration(AntsCommand):
         if self.write_interval_volumes is not None:
             args += ["--write-interval-volumes", str(self.write_interval_volumes)]
 
-        for tx in self._initial_transforms:
-            args += ["--initial-moving-transform", tx]
+        for item in self._initial_transforms:
+            if item[0] == "images":
+                _, fixed, moving, feature = item
+                rendered = bracket(
+                    self._resolve(fixed, "init_fixed"),
+                    self._resolve(moving, "init_moving"),
+                    feature,
+                )
+            else:  # ("file", transform, use_inverse)
+                _, transform, use_inverse = item
+                path = self._resolve(transform, "init_transform")
+                rendered = bracket(path, True) if use_inverse else path
+            args += ["--initial-moving-transform", rendered]
 
         if self._fixed_mask is not None or self._moving_mask is not None:
-            args += ["--masks", bracket(self._fixed_mask, self._moving_mask)]
+            fmask = self._resolve(self._fixed_mask, "fixed_mask") if self._fixed_mask is not None else None
+            mmask = self._resolve(self._moving_mask, "moving_mask") if self._moving_mask is not None else None
+            args += ["--masks", bracket(fmask, mmask)]
 
         for stage in self.stages:
-            args += stage.to_args()
+            args += stage.to_args(self._resolve)
 
         args += ["--verbose", "1" if self.verbose else "0"]
         return args

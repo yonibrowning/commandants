@@ -89,12 +89,12 @@ class N4BiasFieldCorrection(AntsCommand):
             "--image-dimensionality",
             str(self.dimensionality),
             "--input-image",
-            str(self.input_image),
+            self._resolve(self.input_image, "input"),
         ]
         if self.mask_image is not None:
-            args += ["--mask-image", str(self.mask_image)]
+            args += ["--mask-image", self._resolve(self.mask_image, "mask")]
         if self.weight_image is not None:
-            args += ["--weight-image", str(self.weight_image)]
+            args += ["--weight-image", self._resolve(self.weight_image, "weight")]
         if self.shrink_factor is not None:
             args += ["--shrink-factor", str(self.shrink_factor)]
         if self.convergence_iterations is not None:

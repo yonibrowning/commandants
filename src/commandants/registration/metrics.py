@@ -26,11 +26,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Union
+from typing import Callable, Optional, Union
 
-from ..core.params import bracket
+from ..core.params import bracket, str_resolve
 
 PathLike = Union[str, Path]
+
+# Resolver signature: (value, name) -> str. Defaults to plain stringification;
+# a command builder passes a resolver that materializes in-memory images.
+Resolve = Callable[..., str]
 
 
 class Metric:
@@ -38,7 +42,7 @@ class Metric:
 
     name: str = ""
 
-    def to_arg(self) -> str:  # pragma: no cover - overridden
+    def to_arg(self, resolve: Resolve = str_resolve) -> str:  # pragma: no cover - overridden
         raise NotImplementedError
 
     def __str__(self) -> str:  # pragma: no cover - trivial
@@ -59,10 +63,10 @@ class _IntensityMetric(Metric):
     sampling_percentage: Optional[float] = None
     use_gradient_filter: Optional[bool] = None
 
-    def to_arg(self) -> str:
+    def to_arg(self, resolve: Resolve = str_resolve) -> str:
         return self.name + bracket(
-            self.fixed,
-            self.moving,
+            resolve(self.fixed, "fixed"),
+            resolve(self.moving, "moving"),
             self.weight,
             self.radius_or_bins,
             self.sampling_strategy,
@@ -266,10 +270,10 @@ class PSE(Metric):
         self.point_set_sigma = point_set_sigma
         self.k_neighborhood = k_neighborhood
 
-    def to_arg(self) -> str:
+    def to_arg(self, resolve: Resolve = str_resolve) -> str:
         return self.name + bracket(
-            self.fixed_points,
-            self.moving_points,
+            resolve(self.fixed_points, "fixed_points"),
+            resolve(self.moving_points, "moving_points"),
             self.weight,
             self.sampling_pct,
             self.boundary_only,
@@ -301,10 +305,10 @@ class ICP(Metric):
         self.sampling_pct = sampling_pct
         self.boundary_only = boundary_only
 
-    def to_arg(self) -> str:
+    def to_arg(self, resolve: Resolve = str_resolve) -> str:
         return self.name + bracket(
-            self.fixed_points,
-            self.moving_points,
+            resolve(self.fixed_points, "fixed_points"),
+            resolve(self.moving_points, "moving_points"),
             self.weight,
             self.sampling_pct,
             self.boundary_only,
@@ -342,10 +346,10 @@ class JHCT(Metric):
         self.alpha = alpha
         self.use_anisotropic_covariances = use_anisotropic_covariances
 
-    def to_arg(self) -> str:
+    def to_arg(self, resolve: Resolve = str_resolve) -> str:
         return self.name + bracket(
-            self.fixed_points,
-            self.moving_points,
+            resolve(self.fixed_points, "fixed_points"),
+            resolve(self.moving_points, "moving_points"),
             self.weight,
             self.sampling_pct,
             self.boundary_only,

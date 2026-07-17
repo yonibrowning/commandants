@@ -85,9 +85,9 @@ class AntsApplyTransforms(AntsCommand):
             "--dimensionality",
             str(self.dimensionality),
             "--input",
-            str(self.input_image),
+            self._resolve(self.input_image, "input"),
             "--reference-image",
-            str(self.reference_image),
+            self._resolve(self.reference_image, "reference"),
             "--output",
             str(self.output),
         ]
@@ -99,8 +99,9 @@ class AntsApplyTransforms(AntsCommand):
             args += ["--default-value", str(self.default_value)]
         if self.use_float is not None:
             args += ["--float", "1" if self.use_float else "0"]
-        for tx, invert in self._transforms:
-            args += ["--transform", bracket(tx, True) if invert else str(tx)]
+        for i, (tx, invert) in enumerate(self._transforms):
+            path = self._resolve(tx, f"transform{i}")
+            args += ["--transform", bracket(path, True) if invert else path]
         args += ["--verbose", "1" if self.verbose else "0"]
         return args
 
@@ -151,8 +152,9 @@ class AntsApplyTransformsToPoints(AntsCommand):
             "--output",
             str(self.output_csv),
         ]
-        for tx, invert in self._transforms:
-            args += ["--transform", bracket(tx, True) if invert else str(tx)]
+        for i, (tx, invert) in enumerate(self._transforms):
+            path = self._resolve(tx, f"transform{i}")
+            args += ["--transform", bracket(path, True) if invert else path]
         if self.precision is not None:
             args += ["--precision", str(self.precision)]
         return args

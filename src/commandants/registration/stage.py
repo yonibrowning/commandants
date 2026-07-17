@@ -12,9 +12,9 @@ an intensity metric combined with a point-set constraint).
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import List, Optional, Sequence
+from typing import Callable, List, Optional, Sequence
 
-from ..core.params import bracket, xjoin
+from ..core.params import bracket, str_resolve, xjoin
 from .metrics import Metric
 from .transforms import Transform
 
@@ -89,11 +89,15 @@ class Stage:
         vec = xjoin(self.smoothing_sigmas)
         return f"{vec}{self.smoothing_units}" if self.smoothing_units else vec
 
-    def to_args(self) -> List[str]:
-        """Emit this stage's argv tokens in ANTs' expected order."""
+    def to_args(self, resolve: Callable[..., str] = str_resolve) -> List[str]:
+        """Emit this stage's argv tokens in ANTs' expected order.
+
+        ``resolve`` is applied to image-bearing metric arguments so in-memory
+        SimpleITK images become temp-file paths at run time.
+        """
         tokens: List[str] = ["--transform", self.transform.to_arg()]
         for metric in self.metrics:
-            tokens += ["--metric", metric.to_arg()]
+            tokens += ["--metric", metric.to_arg(resolve)]
         tokens += ["--convergence", self.convergence.to_arg()]
         tokens += ["--shrink-factors", xjoin(self.shrink_factors)]
         tokens += ["--smoothing-sigmas", self._smoothing_arg()]

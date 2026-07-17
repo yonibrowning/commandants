@@ -21,8 +21,8 @@ binaries directly and **hides nothing**:
 
 ```bash
 pip install commandants            # core, zero dependencies
-pip install 'commandants[io]'      # + numpy/nibabel for result.load() and point CSVs
-pip install 'commandants[dev]'     # + pytest
+pip install 'commandants[io]'      # + SimpleITK/numpy for in-memory images & point CSVs
+pip install 'commandants[dev]'     # + pytest (and the io deps)
 ```
 
 `commandants` calls the ANTs binaries, so you also need ANTs installed and either
@@ -71,8 +71,48 @@ reg.add_stage(
 
 print(reg.to_shell())     # inspect the exact command (no ANTs needed)
 result = reg.run()        # execute; raises AntsRuntimeError on failure
-warped = result.load("warped")   # needs the [io] extra
+warped = result.load("warped")   # -> SimpleITK.Image (needs the [io] extra)
 ```
+
+### In-memory images (SimpleITK)
+
+Because it wraps the ANTs *binaries*, `commandants` is path-first — the binaries
+read and write files. But you don't have to manage those files: pass a
+`SimpleITK.Image` anywhere a path is expected and it's written to a temp file
+automatically (SimpleITK is used because it preserves origin/spacing/direction, so
+the disk round-trip is lossless). The temp files are **not hidden** — the result
+exposes exactly where they went:
+
+```python
+import SimpleITK as sitk
+fixed = sitk.ReadImage("fixed.nii.gz")
+moving = sitk.ReadImage("moving.nii.gz")
+
+reg = AntsRegistration(3, output="out_")
+reg.initialize_from_images(fixed, moving)            # SimpleITK images
+reg.add_stage(SyN(), CC(fixed, moving), Convergence([100, 70, 50]),
+              [4, 2, 1], [2, 1, 0])
+
+result = reg.run()                 # writes temp inputs, runs ANTs
+print(result.temp_dir)             # e.g. .../commandants_ab12cd
+print(result.workspace.files)      # every temp file written
+print(result.workspace.inputs)     # {'init_fixed': '.../init_fixed.nii.gz', ...}
+```
+
+Control where temp files live and whether they persist:
+
+```python
+from commandants import TempWorkspace
+
+result = reg.run(temp_dir="D:/scratch", keep_temp=True)   # choose the dir; keep files
+# or hand in a managed workspace that cleans up on exit:
+with TempWorkspace(base="D:/scratch", keep=False) as ws:
+    reg.run(workspace=ws)
+```
+
+Previews never touch disk — `to_shell()` / `build_command()` render in-memory
+images as `<sitk:...>` placeholders. The same image object passed to several
+arguments is written only once.
 
 ### Nothing is hidden
 
