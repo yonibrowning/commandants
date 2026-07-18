@@ -32,16 +32,38 @@ def _candidate_in_dir(directory: str | os.PathLike[str], name: str) -> str | Non
     return found
 
 
-def resolve_binary(name: str, ants_path: str | os.PathLike[str] | None = None) -> str:
+def _auto_install_enabled(explicit: bool | None) -> bool:
+    if explicit is not None:
+        return explicit
+    return os.environ.get("COMMANDANTS_AUTO_INSTALL", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
+def resolve_binary(
+    name: str,
+    ants_path: str | os.PathLike[str] | None = None,
+    auto_install: bool | None = None,
+) -> str:
     """Resolve the absolute path to an ANTs binary named ``name``.
+
+    Search order (first hit wins): explicit ``ants_path`` -> ``$ANTSPATH`` ->
+    system ``PATH`` -> commandants-managed install (see
+    :mod:`commandants.install`).
 
     Parameters
     ----------
     name:
         Binary name, e.g. ``"antsRegistration"``.
     ants_path:
-        Optional explicit directory to look in first. Overrides ``ANTSPATH``
-        and ``PATH``.
+        Optional explicit directory to look in first.
+    auto_install:
+        If the binary is not found anywhere and this is True (or the
+        ``COMMANDANTS_AUTO_INSTALL`` environment variable is set), download the
+        managed ANTs binaries and retry. Defaults to the env var.
 
     Raises
     ------
@@ -78,11 +100,34 @@ def resolve_binary(name: str, ants_path: str | os.PathLike[str] | None = None) -
         _RESOLVE_CACHE[key] = hit
         return hit
 
+    # 4. commandants-managed install
+    from ..install import managed_bin_dir  # local import avoids an import cycle
+
+    managed = managed_bin_dir()
+    if managed:
+        hit = _candidate_in_dir(managed, name)
+        tried.append(f"managed={managed}")
+        if hit:
+            _RESOLVE_CACHE[key] = hit
+            return hit
+
+    # Opt-in: download the managed binaries and try once more.
+    if _auto_install_enabled(auto_install):
+        from ..install import install_ants
+
+        bindir = install_ants()
+        hit = _candidate_in_dir(bindir, name)
+        if hit:
+            _RESOLVE_CACHE[key] = hit
+            return hit
+
     raise AntsNotFoundError(
         f"Could not find ANTs binary {name!r}. Searched: {', '.join(tried)}.\n"
-        "Fix by installing ANTs and either adding it to your PATH, setting the "
-        "ANTSPATH environment variable to the directory containing the binaries, "
-        "or passing ants_path=... to the command."
+        "Fix it by any of:\n"
+        "  * run `commandants install-ants` to download prebuilt ANTs binaries,\n"
+        "  * add ANTs to your PATH, or set ANTSPATH to its bin directory,\n"
+        "  * pass ants_path=... to the command,\n"
+        "  * or set COMMANDANTS_AUTO_INSTALL=1 to download automatically."
     )
 
 

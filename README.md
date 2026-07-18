@@ -25,8 +25,40 @@ pip install 'commandants[io]'      # + SimpleITK/numpy for in-memory images & po
 pip install 'commandants[dev]'     # + pytest (and the io deps)
 ```
 
-`commandants` calls the ANTs binaries, so you also need ANTs installed and either
-on your `PATH`, pointed to by `$ANTSPATH`, or passed via `ants_path=...`.
+`commandants` calls the ANTs binaries, so you also need ANTs available.
+
+### Getting ANTs binaries
+
+You can point `commandants` at an existing ANTs install (on `PATH`, via
+`$ANTSPATH`, or `ants_path=...`), **or** let it fetch the official prebuilt
+binaries for you:
+
+```bash
+pip install commandants
+commandants install-ants          # downloads official prebuilt ANTs for your OS
+commandants version               # -> commandants 0.1.0 / ANTs 2.6.5.x
+commandants which antsRegistration
+```
+
+`install-ants` downloads the matching archive from the
+[ANTsX/ANTs releases](https://github.com/ANTsX/ANTs/releases), unpacks it into a
+managed per-user directory (`commandants info` shows where), and `resolve_binary`
+discovers it automatically — after PATH, so a system ANTs still wins if present.
+
+> Note: unlike ANTsPyX (which bundles compiled bindings into its wheels), the ANTs
+> CLI archives are 400–750 MB, far over PyPI's limits — so they can't ship inside
+> the pip wheel. `commandants` stays tiny and fetches them on demand instead.
+
+Nothing downloads implicitly. If you *want* auto-fetch on first use, opt in:
+
+```python
+import os
+os.environ["COMMANDANTS_AUTO_INSTALL"] = "1"   # or resolve_binary(..., auto_install=True)
+```
+
+Other CLI subcommands: `commandants list`, `commandants uninstall-ants`,
+`commandants install-ants --version latest`, `--asset <name>` to override the
+platform pick.
 
 ## Quickstart
 
@@ -154,7 +186,9 @@ commandants/
   core/           binary resolution, the AntsCommand base, result objects
   registration/   AntsRegistration, metrics (incl. PSE/ICP/JHCT), transforms, stages, apply
   preprocessing/  N4BiasFieldCorrection, ThresholdImage, ImageMath, ResampleImage
-  io/             ANTs point-set CSV read/write
+  io/             point-set CSV + SimpleITK in-memory support
+  install.py      download/manage prebuilt ANTs binaries
+  __main__.py     the `commandants` CLI
 ```
 
 Every builder subclasses `AntsCommand`, so they all share `.build_command()`,

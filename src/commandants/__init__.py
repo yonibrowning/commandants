@@ -29,6 +29,12 @@ from .core import (
     resolve_binary,
     version,
 )
+from .install import (
+    install_ants,
+    installed_versions,
+    managed_bin_dir,
+    uninstall_ants,
+)
 from .io import TempWorkspace, is_sitk_image, read_points, write_points
 from .preprocessing import (
     ImageMath,
@@ -81,6 +87,11 @@ __all__ = [
     "resolve_binary",
     "is_available",
     "version",
+    # ANTs binary provisioning
+    "install_ants",
+    "uninstall_ants",
+    "managed_bin_dir",
+    "installed_versions",
     # in-memory images + point I/O
     "TempWorkspace",
     "is_sitk_image",
