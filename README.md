@@ -164,6 +164,25 @@ images, or pass `fixed=` / `shape=`). **This is a documented heuristic, not a
 measurement** — order-of-magnitude for planning, not a guarantee. See
 [`commandants/estimate.py`](src/commandants/estimate.py) for the model.
 
+### Live progress for long runs
+
+By default `run()` buffers output and returns it at the end. For a long job, stream
+it live instead (needs `verbose=True` on the builder so ANTs emits progress):
+
+```python
+reg = AntsRegistration(3, output="reg_", verbose=True, ...)
+result = reg.run(stream=True)            # prints each line as ANTs emits it
+# still captured afterwards:
+print(len(result.stdout))
+
+# or route lines somewhere (logging, tqdm, a file) via a callback:
+reg.run(on_line=lambda ln: logging.info(ln.rstrip()))
+```
+
+When streaming, stdout and stderr are merged so ordering is preserved
+(`result.stdout` holds the merged text). If output looks chunky rather than
+per-iteration, that's the child process buffering, not the wrapper.
+
 ### Understanding exit codes (e.g. `-9`)
 
 ANTs has no big numbered error-code table — it exits `0`/`1` and puts detail in

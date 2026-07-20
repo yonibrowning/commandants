@@ -13,6 +13,7 @@ from __future__ import annotations
 import os
 import shlex
 import subprocess
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Mapping, Optional, Sequence
@@ -205,6 +206,8 @@ class AntsCommand:
         cwd: str | os.PathLike[str] | None = None,
         env: Mapping[str, str] | None = None,
         dry_run: bool = False,
+        stream: bool = False,
+        on_line: Optional[Callable[[str], None]] = None,
         workspace: Optional[TempWorkspace] = None,
         temp_dir: str | os.PathLike[str] | None = None,
         keep_temp: bool = True,
@@ -218,11 +221,21 @@ class AntsCommand:
         capture:
             Capture stdout/stderr as text (default True).
         cwd, env:
-            Forwarded to :func:`subprocess.run`.
+            Forwarded to the subprocess.
         dry_run:
             If True, do not execute or write temp files; return a
             :class:`CompletedAnts` with ``returncode=-1`` and the assembled argv
             (in-memory images shown as placeholders).
+        stream:
+            If True, print ANTs' output live (line by line) as it runs instead of
+            only returning it at the end -- useful for long jobs. Requires
+            ``verbose=True`` on the builder for ANTs to emit progress. When
+            streaming, stdout and stderr are merged so ordering is preserved
+            (``result.stdout`` holds the merged text; ``result.stderr`` is None).
+        on_line:
+            Optional callback invoked with each output line (implies streaming).
+            Overrides the default console echo -- e.g. pass ``logging.info`` or a
+            tqdm updater. Exceptions from the callback are ignored.
         workspace:
             Explicit :class:`TempWorkspace` to materialize in-memory images into.
         temp_dir:
@@ -246,30 +259,80 @@ class AntsCommand:
                 argv=argv, returncode=-1, outputs=outputs, workspace=self._workspace
             )
 
-        proc = subprocess.run(
-            argv,
-            capture_output=capture,
-            text=True,
-            cwd=cwd,
-            env=dict(env) if env is not None else None,
-            check=False,
-        )
-        result = CompletedAnts(
-            argv=argv,
-            returncode=proc.returncode,
-            stdout=proc.stdout if capture else None,
-            stderr=proc.stderr if capture else None,
-            outputs=outputs,
-            workspace=self._workspace,
-        )
-        if check and proc.returncode != 0:
-            raise AntsRuntimeError(
+        if stream or on_line is not None:
+            result = self._run_streaming(argv, capture, cwd, env, on_line, outputs)
+        else:
+            proc = subprocess.run(
+                argv,
+                capture_output=capture,
+                text=True,
+                cwd=cwd,
+                env=dict(env) if env is not None else None,
+                check=False,
+            )
+            result = CompletedAnts(
                 argv=argv,
                 returncode=proc.returncode,
+                stdout=proc.stdout if capture else None,
+                stderr=proc.stderr if capture else None,
+                outputs=outputs,
+                workspace=self._workspace,
+            )
+
+        if check and result.returncode != 0:
+            raise AntsRuntimeError(
+                argv=argv,
+                returncode=result.returncode,
                 stdout=result.stdout,
                 stderr=result.stderr,
             )
         return result
+
+    def _run_streaming(
+        self,
+        argv: list[str],
+        capture: bool,
+        cwd: Any,
+        env: Any,
+        on_line: Optional[Callable[[str], None]],
+        outputs: dict,
+    ) -> CompletedAnts:
+        """Run the command, echoing/forwarding output line by line as it arrives."""
+        def _default_sink(text: str) -> None:
+            sys.stdout.write(text)
+            sys.stdout.flush()
+
+        sink = on_line if on_line is not None else _default_sink
+
+        proc = subprocess.Popen(
+            argv,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,  # merge so live ordering is correct
+            text=True,
+            bufsize=1,  # line-buffered
+            cwd=cwd,
+            env=dict(env) if env is not None else None,
+        )
+        chunks: list[str] = []
+        assert proc.stdout is not None
+        for line in proc.stdout:
+            if capture:
+                chunks.append(line)
+            try:
+                sink(line)
+            except Exception:  # a bad callback must not kill the run
+                pass
+        proc.stdout.close()
+        returncode = proc.wait()
+
+        return CompletedAnts(
+            argv=argv,
+            returncode=returncode,
+            stdout="".join(chunks) if capture else None,
+            stderr=None,
+            outputs=outputs,
+            workspace=self._workspace,
+        )
 
     # -- previews -------------------------------------------------------------
     def to_shell(self) -> str:
