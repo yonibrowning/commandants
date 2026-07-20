@@ -77,6 +77,37 @@ def test_tee_console_and_file(tmp_path, capsys):
     assert "teed" in log.read_text()               # and file
 
 
+def test_stream_writes_to_current_sys_stdout(monkeypatch):
+    """Jupyter/ipykernel replaces sys.stdout with its own write/flush object.
+
+    We must write to whatever sys.stdout *is at call time* (and flush), not a
+    file descriptor captured at import -- otherwise output wouldn't appear in a
+    notebook cell. This simulates that redirected stream.
+    """
+    import sys
+
+    class FakeOutStream:  # stand-in for ipykernel's OutStream
+        def __init__(self):
+            self.buf = []
+            self.flushes = 0
+
+        def write(self, s):
+            self.buf.append(s)
+
+        def flush(self):
+            self.flushes += 1
+
+    fake = FakeOutStream()
+    monkeypatch.setattr(sys, "stdout", fake)
+
+    cmd = _PyCommand()
+    cmd.extra_args("-c", "print('notebook-cell-line')")
+    cmd.run(stream=True)
+
+    assert "notebook-cell-line" in "".join(fake.buf)
+    assert fake.flushes > 0  # flushed per line -> appears live in the cell
+
+
 def test_bad_callback_does_not_kill_run():
     cmd = _PyCommand()
     cmd.extra_args("-c", "print('x')")

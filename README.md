@@ -187,6 +187,12 @@ streaming, stdout and stderr are merged so ordering is preserved (`result.stdout
 holds the merged text). If output looks chunky rather than per-iteration, that's
 the child process buffering, not the wrapper.
 
+**Jupyter:** `stream=True` works in notebooks — the wrapper reads ANTs' output and
+re-emits it through Python's `sys.stdout` (which Jupyter redirects into the cell),
+flushing per line. (This is why streaming shows up where raw inherited subprocess
+output would not.) For very long runs, prefer `log_file=` (or an `on_line` that
+updates a single tqdm bar) to avoid flooding the cell with thousands of lines.
+
 ### Understanding exit codes (e.g. `-9`)
 
 ANTs has no big numbered error-code table — it exits `0`/`1` and puts detail in
