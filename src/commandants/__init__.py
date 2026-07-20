@@ -37,7 +37,9 @@ from .install import (
     managed_bin_dir,
     uninstall_ants,
 )
+from . import presets
 from .io import TempWorkspace, is_sitk_image, read_points, write_points
+from .presets import affine, rigid, similarity, syn, syn_only, synonly, translation
 from .preprocessing import (
     ImageMath,
     N4BiasFieldCorrection,
@@ -100,6 +102,15 @@ __all__ = [
     # exit-code interpretation
     "explain_exit_code",
     "ExitCodeExplanation",
+    # preset registration builders (ANTsPyX-style)
+    "presets",
+    "translation",
+    "rigid",
+    "similarity",
+    "affine",
+    "syn",
+    "syn_only",
+    "synonly",
     # in-memory images + point I/O
     "TempWorkspace",
     "is_sitk_image",

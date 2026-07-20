@@ -106,6 +106,33 @@ result = reg.run()        # execute; raises AntsRuntimeError on failure
 warped = result.load("warped")   # -> SimpleITK.Image (needs the [io] extra)
 ```
 
+### Presets (ANTsPyX-style)
+
+Don't want to hand-build stages? Use a preset — it returns a ready
+`AntsRegistration` (you still inspect/estimate/run it):
+
+```python
+from commandants import presets
+
+reg = presets.syn("fixed.nii.gz", "moving.nii.gz", "out_",
+                  warped_output="out_Warped.nii.gz", use_float=True, verbose=True)
+reg.run(stream=True)
+```
+
+| Preset | Stages | Center-of-mass init? |
+|--------|--------|----------------------|
+| `rigid` | Rigid | yes |
+| `affine` | Rigid → Affine | yes |
+| `syn` | Rigid → Affine → SyN (≈ antsRegistrationSyN) | yes |
+| `syn_only` | SyN | **no** (assumes pre-aligned; pass `init=` or `initial_transform=`) |
+| `translation`, `similarity` | (linear) | yes |
+
+Defaults mirror ANTsPyX (single precision, Mattes MI, light winsorization) and
+every schedule/metric/step is an overridable argument — nothing hidden. Unlike a
+hand-built registration, the linear presets and `syn` **include the
+center-of-mass initialization by default**, so you won't get the identity-transform
+surprise from a missing `--initial-moving-transform`.
+
 ### In-memory images (SimpleITK)
 
 Because it wraps the ANTs *binaries*, `commandants` is path-first — the binaries
