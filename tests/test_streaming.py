@@ -48,6 +48,35 @@ def test_stream_merges_stderr_into_stdout():
     assert result.stderr is None  # merged into stdout when streaming
 
 
+def test_log_file_by_path(tmp_path):
+    log = tmp_path / "run.log"
+    cmd = _PyCommand()
+    cmd.extra_args("-c", "print('hello'); print('world')")
+    result = cmd.run(log_file=str(log))
+    assert result.returncode == 0
+    contents = log.read_text()
+    assert "hello" in contents and "world" in contents
+
+
+def test_log_file_open_handle_left_open(tmp_path):
+    log = tmp_path / "run2.log"
+    cmd = _PyCommand()
+    cmd.extra_args("-c", "print('kept open')")
+    with open(log, "w", encoding="utf-8") as fh:
+        cmd.run(log_file=fh)
+        assert not fh.closed  # a caller-owned handle stays open
+    assert "kept open" in log.read_text()
+
+
+def test_tee_console_and_file(tmp_path, capsys):
+    log = tmp_path / "run3.log"
+    cmd = _PyCommand()
+    cmd.extra_args("-c", "print('teed')")
+    cmd.run(stream=True, log_file=str(log))
+    assert "teed" in capsys.readouterr().out       # console
+    assert "teed" in log.read_text()               # and file
+
+
 def test_bad_callback_does_not_kill_run():
     cmd = _PyCommand()
     cmd.extra_args("-c", "print('x')")

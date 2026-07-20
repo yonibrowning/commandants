@@ -171,17 +171,21 @@ it live instead (needs `verbose=True` on the builder so ANTs emits progress):
 
 ```python
 reg = AntsRegistration(3, output="reg_", verbose=True, ...)
-result = reg.run(stream=True)            # prints each line as ANTs emits it
-# still captured afterwards:
-print(len(result.stdout))
 
-# or route lines somewhere (logging, tqdm, a file) via a callback:
-reg.run(on_line=lambda ln: logging.info(ln.rstrip()))
+reg.run(stream=True)                       # echo each line to the console
+reg.run(log_file="reg.log")                # write each line to a file (live, tail-able)
+reg.run(stream=True, log_file="reg.log")   # tee: console AND file
+reg.run(on_line=lambda ln: logging.info(ln.rstrip()))   # or route to logging/tqdm/...
+
+result = reg.run(stream=True)
+print(len(result.stdout))                  # output is still captured regardless
 ```
 
-When streaming, stdout and stderr are merged so ordering is preserved
-(`result.stdout` holds the merged text). If output looks chunky rather than
-per-iteration, that's the child process buffering, not the wrapper.
+`stream` (console), `log_file` (a path — opened/closed for you — or an open file
+handle), and `on_line` (callback) are independent and combine freely. When
+streaming, stdout and stderr are merged so ordering is preserved (`result.stdout`
+holds the merged text). If output looks chunky rather than per-iteration, that's
+the child process buffering, not the wrapper.
 
 ### Understanding exit codes (e.g. `-9`)
 

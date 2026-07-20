@@ -208,6 +208,7 @@ class AntsCommand:
         dry_run: bool = False,
         stream: bool = False,
         on_line: Optional[Callable[[str], None]] = None,
+        log_file: Any = None,
         workspace: Optional[TempWorkspace] = None,
         temp_dir: str | os.PathLike[str] | None = None,
         keep_temp: bool = True,
@@ -227,15 +228,21 @@ class AntsCommand:
             :class:`CompletedAnts` with ``returncode=-1`` and the assembled argv
             (in-memory images shown as placeholders).
         stream:
-            If True, print ANTs' output live (line by line) as it runs instead of
-            only returning it at the end -- useful for long jobs. Requires
-            ``verbose=True`` on the builder for ANTs to emit progress. When
-            streaming, stdout and stderr are merged so ordering is preserved
+            If True, echo ANTs' output live (line by line) to the console as it
+            runs instead of only returning it at the end -- useful for long jobs.
+            Requires ``verbose=True`` on the builder for ANTs to emit progress.
+            When streaming, stdout and stderr are merged so ordering is preserved
             (``result.stdout`` holds the merged text; ``result.stderr`` is None).
         on_line:
-            Optional callback invoked with each output line (implies streaming).
-            Overrides the default console echo -- e.g. pass ``logging.info`` or a
-            tqdm updater. Exceptions from the callback are ignored.
+            Optional callback invoked with each output line (implies streaming),
+            e.g. ``logging.info`` or a tqdm updater. Exceptions are ignored.
+        log_file:
+            Optional path or open text file to write output to live, line by line
+            (implies streaming). A path is opened (truncated) and closed for you;
+            an open file object is written to but left open. Independent of
+            ``stream`` and ``on_line`` -- combine them to tee to several places
+            (e.g. ``stream=True, log_file="reg.log"`` writes the file *and* echoes
+            to the console).
         workspace:
             Explicit :class:`TempWorkspace` to materialize in-memory images into.
         temp_dir:
@@ -259,8 +266,10 @@ class AntsCommand:
                 argv=argv, returncode=-1, outputs=outputs, workspace=self._workspace
             )
 
-        if stream or on_line is not None:
-            result = self._run_streaming(argv, capture, cwd, env, on_line, outputs)
+        if stream or on_line is not None or log_file is not None:
+            result = self._run_streaming(
+                argv, capture, cwd, env, stream, on_line, log_file, outputs
+            )
         else:
             proc = subprocess.run(
                 argv,
@@ -294,36 +303,63 @@ class AntsCommand:
         capture: bool,
         cwd: Any,
         env: Any,
+        stream: bool,
         on_line: Optional[Callable[[str], None]],
+        log_file: Any,
         outputs: dict,
     ) -> CompletedAnts:
-        """Run the command, echoing/forwarding output line by line as it arrives."""
-        def _default_sink(text: str) -> None:
-            sys.stdout.write(text)
-            sys.stdout.flush()
+        """Run the command, teeing output line by line to any active sinks."""
+        sinks: list[Callable[[str], None]] = []
 
-        sink = on_line if on_line is not None else _default_sink
+        if stream:
+            def _console(text: str) -> None:
+                sys.stdout.write(text)
+                sys.stdout.flush()
 
-        proc = subprocess.Popen(
-            argv,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,  # merge so live ordering is correct
-            text=True,
-            bufsize=1,  # line-buffered
-            cwd=cwd,
-            env=dict(env) if env is not None else None,
-        )
+            sinks.append(_console)
+
+        opened_file = None
+        if log_file is not None:
+            if hasattr(log_file, "write"):
+                fh = log_file  # caller-owned open file; we don't close it
+            else:
+                fh = open(log_file, "w", encoding="utf-8")  # noqa: SIM115
+                opened_file = fh
+
+            def _to_file(text: str, fh=fh) -> None:
+                fh.write(text)
+                fh.flush()
+
+            sinks.append(_to_file)
+
+        if on_line is not None:
+            sinks.append(on_line)
+
         chunks: list[str] = []
-        assert proc.stdout is not None
-        for line in proc.stdout:
-            if capture:
-                chunks.append(line)
-            try:
-                sink(line)
-            except Exception:  # a bad callback must not kill the run
-                pass
-        proc.stdout.close()
-        returncode = proc.wait()
+        try:
+            proc = subprocess.Popen(
+                argv,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,  # merge so live ordering is correct
+                text=True,
+                bufsize=1,  # line-buffered
+                cwd=cwd,
+                env=dict(env) if env is not None else None,
+            )
+            assert proc.stdout is not None
+            for line in proc.stdout:
+                if capture:
+                    chunks.append(line)
+                for sink in sinks:
+                    try:
+                        sink(line)
+                    except Exception:  # a bad sink must not kill the run
+                        pass
+            proc.stdout.close()
+            returncode = proc.wait()
+        finally:
+            if opened_file is not None:
+                opened_file.close()
 
         return CompletedAnts(
             argv=argv,
