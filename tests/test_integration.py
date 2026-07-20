@@ -7,7 +7,6 @@ These actually invoke ANTs on tiny synthetic images. On a machine without ANTs
 from __future__ import annotations
 
 import os
-import shutil
 
 import pytest
 
@@ -20,11 +19,14 @@ from commandants import (
     N4BiasFieldCorrection,
     Rigid,
     TempWorkspace,
+    is_available,
 )
 
+# Gate on the full resolution order (explicit > ANTSPATH > PATH > managed install),
+# not just PATH -- so a `commandants install-ants` binary counts.
 pytestmark = pytest.mark.skipif(
-    shutil.which("antsRegistration") is None,
-    reason="ANTs binaries not found on PATH; skipping integration tests.",
+    not is_available("antsRegistration"),
+    reason="ANTs binaries not found (PATH/ANTSPATH/managed); skipping integration tests.",
 )
 
 sitk = pytest.importorskip("SimpleITK")
