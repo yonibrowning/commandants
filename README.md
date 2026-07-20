@@ -166,6 +166,31 @@ apply.add_transform("out_0GenericAffine.mat")   # applied first (ANTs order)
 apply.run()
 ```
 
+### How output transforms are saved
+
+ANTs' transform-file naming trips everyone up. With `collapse_output_transforms`
+on (standard), a **Rigid → Affine → SyN** run with `output="reg_"` writes:
+
+| File | What it is |
+|------|-----------|
+| `reg_0GenericAffine.mat` | Rigid **and** Affine collapsed into one linear transform |
+| `reg_1Warp.nii.gz` | SyN forward deformation (moving → fixed) |
+| `reg_1InverseWarp.nii.gz` | SyN inverse deformation (fixed → moving) |
+
+The number is the position in the *collapsed* stack, not the stage index — so the
+two linear stages share index `0` and SyN is `1`. `reg.expected_transforms()`
+predicts these filenames and hands back ready-to-apply `-t` lists:
+
+```python
+info = reg.expected_transforms()
+info["forward"]   # ['reg_1Warp.nii.gz', 'reg_0GenericAffine.mat']  (moving -> fixed)
+info["inverse"]   # [('reg_0GenericAffine.mat', True), 'reg_1InverseWarp.nii.gz']
+```
+
+Set `write_composite_transform=True` to get a single `reg_Composite.h5` /
+`reg_InverseComposite.h5` instead. Full worked example:
+[`examples/rigid_affine_syn.py`](examples/rigid_affine_syn.py).
+
 ### Preprocessing
 
 ```python

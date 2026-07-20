@@ -6,6 +6,7 @@ from __future__ import annotations
 import pytest
 
 from commandants import (
+    Affine,
     AntsRegistration,
     CC,
     Convergence,
@@ -126,6 +127,41 @@ def test_stage_level_mismatch_raises():
             shrink_factors=[4, 2, 1],               # 3 levels -> mismatch
             smoothing_sigmas=[2, 1, 0],
         )
+
+
+def test_expected_transforms_rigid_affine_syn():
+    reg = AntsRegistration(
+        3, output="reg_", collapse_output_transforms=True,
+        warped_output="reg_Warped.nii.gz",
+    )
+    reg.initialize_from_images("f.nii", "m.nii", init="center-of-mass")
+    reg.add_stage(Rigid(), MI("f.nii", "m.nii"), Convergence([10]), [1], [0])
+    reg.add_stage(Affine(), MI("f.nii", "m.nii"), Convergence([10]), [1], [0])
+    reg.add_stage(SyN(), CC("f.nii", "m.nii"), Convergence([10]), [1], [0])
+
+    info = reg.expected_transforms()
+    # Rigid + Affine collapse into 0GenericAffine; SyN is index 1.
+    assert info["files"] == [
+        "reg_0GenericAffine.mat",
+        "reg_1Warp.nii.gz",
+        "reg_1InverseWarp.nii.gz",
+    ]
+    # moving -> fixed: warp first, then affine.
+    assert info["forward"] == ["reg_1Warp.nii.gz", "reg_0GenericAffine.mat"]
+    # fixed -> moving: inverted affine, then inverse warp.
+    assert info["inverse"] == [("reg_0GenericAffine.mat", True), "reg_1InverseWarp.nii.gz"]
+    assert info["warped"] == "reg_Warped.nii.gz"
+
+
+def test_expected_transforms_composite():
+    reg = AntsRegistration(3, output="reg_", write_composite_transform=True)
+    reg.add_stage(Rigid(), MI("f.nii", "m.nii"), Convergence([10]), [1], [0])
+    reg.add_stage(SyN(), CC("f.nii", "m.nii"), Convergence([10]), [1], [0])
+
+    info = reg.expected_transforms()
+    assert info["files"] == ["reg_Composite.h5", "reg_InverseComposite.h5"]
+    assert info["forward"] == ["reg_Composite.h5"]
+    assert info["inverse"] == ["reg_InverseComposite.h5"]
 
 
 def test_restrict_deformation_and_masks():

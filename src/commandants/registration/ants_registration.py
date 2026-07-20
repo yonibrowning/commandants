@@ -250,6 +250,99 @@ class AntsRegistration(AntsCommand):
         args += ["--verbose", "1" if self.verbose else "0"]
         return args
 
+    def expected_transforms(self) -> dict:
+        """Predict the transform files ANTs will write, and how to apply them.
+
+        Returns a dict with:
+
+        * ``files``   -- the transform files that will be written, in order;
+        * ``forward`` -- the ``-t`` list to warp *moving -> fixed* (deformable
+          first, then affine), ready to feed to :class:`AntsApplyTransforms`;
+        * ``inverse`` -- the ``-t`` list to warp *fixed -> moving*; affine entries
+          appear as ``(path, invert=True)`` tuples;
+        * ``warped`` / ``inverse_warped`` -- the warped-image outputs, if set.
+
+        Naming rules (matching ANTs):
+
+        * With ``collapse_output_transforms`` on (the recommended default here),
+          consecutive **linear** stages (Translation/Rigid/Similarity/Affine) --
+          plus the center-of-mass init -- collapse into a single
+          ``{prefix}{i}GenericAffine.mat``. Each **deformable** stage (SyN, ...)
+          writes ``{prefix}{i}Warp.nii.gz`` and ``{prefix}{i}InverseWarp.nii.gz``.
+          ``i`` is the position in the collapsed stack.
+        * With ``write_composite_transform`` on, ANTs instead writes single
+          ``{prefix}Composite.h5`` / ``{prefix}InverseComposite.h5`` files.
+
+        So a Rigid -> Affine -> SyN run with ``output="out_"`` produces
+        ``out_0GenericAffine.mat`` (rigid+affine combined), ``out_1Warp.nii.gz``,
+        and ``out_1InverseWarp.nii.gz``.
+
+        This is a best-effort prediction for standard pipelines; the ANTs log is
+        always the ground truth.
+        """
+        from .transforms import Affine, CompositeAffine, Rigid, Similarity, Translation
+
+        linear = (Translation, Rigid, Similarity, Affine, CompositeAffine)
+        prefix = "" if self.output is None else str(self.output)
+        result: dict = {"prefix": prefix}
+
+        if self.write_composite_transform:
+            comp = f"{prefix}Composite.h5"
+            inv = f"{prefix}InverseComposite.h5"
+            result.update(files=[comp, inv], forward=[comp], inverse=[inv])
+        else:
+            collapse = (
+                True
+                if self.collapse_output_transforms is None
+                else self.collapse_output_transforms
+            )
+            # Reduce stages to ordered output "units": collapsed-linear or warp.
+            units: list[str] = []
+            if collapse:
+                j = 0
+                while j < len(self.stages):
+                    if isinstance(self.stages[j].transform, linear):
+                        units.append("affine")
+                        while j < len(self.stages) and isinstance(
+                            self.stages[j].transform, linear
+                        ):
+                            j += 1
+                    else:
+                        units.append("warp")
+                        j += 1
+            else:
+                units = [
+                    "affine" if isinstance(s.transform, linear) else "warp"
+                    for s in self.stages
+                ]
+
+            named: list[tuple] = []
+            files: list[str] = []
+            for idx, unit in enumerate(units):
+                if unit == "affine":
+                    mat = f"{prefix}{idx}GenericAffine.mat"
+                    files.append(mat)
+                    named.append(("affine", mat, None))
+                else:
+                    fwd = f"{prefix}{idx}Warp.nii.gz"
+                    inv = f"{prefix}{idx}InverseWarp.nii.gz"
+                    files += [fwd, inv]
+                    named.append(("warp", fwd, inv))
+
+            # moving->fixed: apply linear then warp, so the -t list is reversed.
+            forward = [u[1] for u in reversed(named)]
+            # fixed->moving: inverse-warp then inverse-affine, list in stage order.
+            inverse: list = []
+            for kind, fwd, inv in named:
+                inverse.append((fwd, True) if kind == "affine" else inv)
+            result.update(files=files, forward=forward, inverse=inverse)
+
+        if self.warped_output is not None:
+            result["warped"] = str(self.warped_output)
+        if self.inverse_warped_output is not None:
+            result["inverse_warped"] = str(self.inverse_warped_output)
+        return result
+
     def declared_outputs(self) -> dict:
         """Predictable, user-named outputs (warped images and composites).
 
