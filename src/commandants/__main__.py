@@ -45,7 +45,7 @@ def _cmd_version(args: argparse.Namespace) -> int:
 
     print(f"commandants {__version__}")
     if is_available():
-        print(f"ANTs {version()}")
+        print(version())  # already self-identifies, e.g. "ANTs Version: 2.6.5-..."
     else:
         print("ANTs: not found (run `commandants install-ants`)")
     return 0
