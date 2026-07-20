@@ -103,9 +103,13 @@ The number is the transform's position in the (collapsed) stack, NOT the stage
 index -- that's why the two linear stages share index 0 and SyN is index 1.
 
 Predicted by reg.expected_transforms():
-  files   : {info['files']}
-  forward : {info['forward']}      (moving -> fixed; feed straight to -t)
-  inverse : {info['inverse']}      (fixed -> moving; affine is inverted)
+  output_dir : {info['output_dir']}
+               (a bare prefix like 'reg_' lands here, the working directory at
+                run time; ANTs will NOT create this folder -- make sure it exists.
+                Use output='/path/to/out/reg_' or reg.run(cwd=...) to place them.)
+  files      : {info['files']}
+  forward    : {info['forward']}   (moving -> fixed; feed straight to -t)
+  inverse    : {info['inverse']}   (fixed -> moving; affine is inverted)
 """
     )
 

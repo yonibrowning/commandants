@@ -250,17 +250,26 @@ class AntsRegistration(AntsCommand):
         args += ["--verbose", "1" if self.verbose else "0"]
         return args
 
-    def expected_transforms(self) -> dict:
+    def expected_transforms(self, cwd: str | os.PathLike[str] | None = None) -> dict:
         """Predict the transform files ANTs will write, and how to apply them.
 
         Returns a dict with:
 
-        * ``files``   -- the transform files that will be written, in order;
+        * ``files``   -- the transform files that will be written, in order
+          (as ANTs names them, i.e. prefixed by ``output``);
+        * ``files_abs`` -- the same files as absolute paths;
+        * ``output_dir`` -- the absolute folder the files will land in;
         * ``forward`` -- the ``-t`` list to warp *moving -> fixed* (deformable
           first, then affine), ready to feed to :class:`AntsApplyTransforms`;
         * ``inverse`` -- the ``-t`` list to warp *fixed -> moving*; affine entries
           appear as ``(path, invert=True)`` tuples;
         * ``warped`` / ``inverse_warped`` -- the warped-image outputs, if set.
+
+        The folder is derived from the ``output`` prefix: a bare prefix like
+        ``"reg_"`` resolves against ``cwd`` (defaulting to the current working
+        directory, i.e. where ``run()`` will launch ANTs), while a prefix with a
+        path component (``"/data/sub01/reg_"``) points at that directory. ANTs
+        does **not** create a missing output folder -- make sure it exists.
 
         Naming rules (matching ANTs):
 
@@ -341,6 +350,16 @@ class AntsRegistration(AntsCommand):
             result["warped"] = str(self.warped_output)
         if self.inverse_warped_output is not None:
             result["inverse_warped"] = str(self.inverse_warped_output)
+
+        # Resolve the folder the files will actually land in.
+        root = os.path.abspath(str(cwd)) if cwd is not None else os.getcwd()
+        prefix_dir = os.path.dirname(prefix)
+        result["output_dir"] = (
+            os.path.abspath(os.path.join(root, prefix_dir)) if prefix_dir else root
+        )
+        result["files_abs"] = [
+            os.path.abspath(os.path.join(root, f)) for f in result["files"]
+        ]
         return result
 
     def declared_outputs(self) -> dict:

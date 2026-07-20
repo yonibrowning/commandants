@@ -153,6 +153,23 @@ def test_expected_transforms_rigid_affine_syn():
     assert info["warped"] == "reg_Warped.nii.gz"
 
 
+def test_expected_transforms_output_dir():
+    import os
+
+    # Bare prefix -> resolves against cwd (or the cwd passed here).
+    reg = AntsRegistration(3, output="reg_")
+    reg.add_stage(Rigid(), MI("f.nii", "m.nii"), Convergence([10]), [1], [0])
+    info = reg.expected_transforms(cwd="/work/out")
+    assert info["output_dir"] == os.path.abspath("/work/out")
+    assert info["files_abs"][0] == os.path.abspath("/work/out/reg_0GenericAffine.mat")
+
+    # Prefix with a directory component -> that directory wins.
+    reg2 = AntsRegistration(3, output="/data/sub01/reg_")
+    reg2.add_stage(Rigid(), MI("f.nii", "m.nii"), Convergence([10]), [1], [0])
+    info2 = reg2.expected_transforms(cwd="/somewhere/else")
+    assert info2["output_dir"] == os.path.abspath("/data/sub01")
+
+
 def test_expected_transforms_composite():
     reg = AntsRegistration(3, output="reg_", write_composite_transform=True)
     reg.add_stage(Rigid(), MI("f.nii", "m.nii"), Convergence([10]), [1], [0])

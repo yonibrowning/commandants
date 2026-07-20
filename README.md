@@ -182,10 +182,16 @@ two linear stages share index `0` and SyN is `1`. `reg.expected_transforms()`
 predicts these filenames and hands back ready-to-apply `-t` lists:
 
 ```python
-info = reg.expected_transforms()
-info["forward"]   # ['reg_1Warp.nii.gz', 'reg_0GenericAffine.mat']  (moving -> fixed)
-info["inverse"]   # [('reg_0GenericAffine.mat', True), 'reg_1InverseWarp.nii.gz']
+info = reg.expected_transforms()          # optionally pass cwd=... (where run() launches)
+info["output_dir"]  # absolute folder the files land in
+info["files_abs"]   # the files as absolute paths
+info["forward"]     # ['reg_1Warp.nii.gz', 'reg_0GenericAffine.mat']  (moving -> fixed)
+info["inverse"]     # [('reg_0GenericAffine.mat', True), 'reg_1InverseWarp.nii.gz']
 ```
+
+The folder comes from your `output` prefix: a bare `"reg_"` lands in the working
+directory at run time; `"/data/sub01/reg_"` lands in `/data/sub01/`. **ANTs will
+not create a missing output folder** — make sure it exists (or pass `run(cwd=...)`).
 
 Set `write_composite_transform=True` to get a single `reg_Composite.h5` /
 `reg_InverseComposite.h5` instead. Full worked example:
