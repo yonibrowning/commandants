@@ -78,7 +78,29 @@ from .registration import (
     is_point_set_metric,
 )
 
-__version__ = "0.1.0"
+def _resolve_version() -> str:
+    # Prefer the file setuptools-scm writes at build/install time...
+    try:
+        from ._version import version as _v  # type: ignore
+
+        return _v
+    except Exception:
+        pass
+    # ...then the installed package metadata...
+    try:
+        from importlib.metadata import PackageNotFoundError, version as _pkg_version
+
+        try:
+            return _pkg_version("commandants")
+        except PackageNotFoundError:
+            pass
+    except Exception:
+        pass
+    # ...otherwise we're running from a source tree with no build info.
+    return "0.0.0+unknown"
+
+
+__version__ = _resolve_version()
 
 __all__ = [
     "__version__",

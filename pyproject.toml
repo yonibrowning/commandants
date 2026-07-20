@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools>=64", "wheel"]
+requires = ["setuptools>=64", "setuptools-scm>=8", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "commandants"
-version = "0.1.0"
+dynamic = ["version"]
 description = "A thin, transparent Python wrapper for the ANTs command-line tools (commandANTs)."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -38,6 +38,11 @@ Issues = "https://github.com/yonibrowning/commandants/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools_scm]
+# Version is derived from git: the latest v* tag plus commits-since and the commit
+# hash (e.g. 0.1.1.dev3+g9b7d12b). Cut a release by tagging: git tag v0.2.0.
+version_file = "src/commandants/_version.py"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
