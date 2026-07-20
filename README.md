@@ -127,8 +127,10 @@ reg.run(stream=True)
 | `syn_only` | SyN | **no** (assumes pre-aligned; pass `init=` or `initial_transform=`) |
 | `translation`, `similarity` | (linear) | yes |
 
-Defaults mirror ANTsPyX (single precision, Mattes MI, light winsorization) and
-every schedule/metric/step is an overridable argument — nothing hidden. Unlike a
+Defaults mirror ANTsPyX (single precision, Mattes MI, light winsorization, and the
+same linear schedule — `Rigid/Affine[0.25]`, `2100x1200x1200x10` iterations,
+`6x4x2x1` shrink to full resolution) so the presets recover large offsets the way
+ANTsPyX does. Every schedule/metric/step is an overridable argument — nothing hidden. Unlike a
 hand-built registration, the linear presets and `syn` **include the
 center-of-mass initialization by default**, so you won't get the identity-transform
 surprise from a missing `--initial-moving-transform`. Worked example (incl. a

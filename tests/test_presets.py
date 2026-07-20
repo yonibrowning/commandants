@@ -76,6 +76,24 @@ def test_preset_is_a_normal_reg_object():
     assert est.peak_memory_bytes > 0
 
 
+def test_linear_schedule_matches_antspyx_defaults():
+    # The linear presets should reproduce ANTsPyX's default Rigid/Affine command:
+    # Rigid[0.25], mattes[...,32,regular,0.2], 2100x1200x1200x10, shrink 6x4x2x1.
+    argv = presets.rigid("f.nii", "m.nii", "out_").build_command()
+    assert "Rigid[0.25]" in argv
+    assert "6x4x2x1" in argv
+    assert argv[argv.index("--convergence") + 1] == "[2100x1200x1200x10,1e-06,10]"
+    assert any(t.endswith("Regular,0.2]") for t in argv)
+
+
+def test_initial_transform_overrides_com_init():
+    reg = presets.rigid("f.nii", "m.nii", "out_", initial_transform="prior.mat")
+    argv = reg.build_command()
+    # The explicit transform is used; no center-of-mass [f,m,1] triple.
+    assert "prior.mat" in argv
+    assert not any(tok.endswith(",1]") and "f.nii" in tok for tok in argv)
+
+
 def test_dim_2d():
     reg = presets.rigid("f.nii", "m.nii", "out_", dim=2)
     assert reg.dimensionality == 2

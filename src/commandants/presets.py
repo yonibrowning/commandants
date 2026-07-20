@@ -40,10 +40,17 @@ from .registration import (
 
 PathLike = Union[str, "os.PathLike[str]"]  # noqa: F821
 
-# antsRegistrationSyN-style default schedules.
-_LINEAR_ITERATIONS = (1000, 500, 250, 100)
-_LINEAR_SHRINK = (8, 4, 2, 1)
+# Linear defaults mirror ANTsPyX's pure Rigid/Affine command (its
+# aff_iterations / aff_shrink_factors / aff_smoothing_sigmas and Rigid[0.25]).
+# These give the optimizer enough "reach" (step x iterations, down to full
+# resolution) to close a large translation offset -- a weaker schedule undershoots
+# and lands the result off to the side.
+_LINEAR_GRAD_STEP = 0.25
+_LINEAR_SAMPLING_PCT = 0.2
+_LINEAR_ITERATIONS = (2100, 1200, 1200, 10)
+_LINEAR_SHRINK = (6, 4, 2, 1)
 _LINEAR_SMOOTH = (3, 2, 1, 0)
+# SyN (deformable) stage defaults.
 _SYN_ITERATIONS = (100, 70, 50, 20)
 _SYN_SHRINK = (8, 4, 2, 1)
 _SYN_SMOOTH = (3, 2, 1, 0)
@@ -86,8 +93,9 @@ def _new_reg(
 def _linear_preset(
     fixed, moving, output, transforms, *,
     dim=3, warped_output=None, inverse_warped_output=None,
-    init="center-of-mass", metric="mattes", bins=32, sampling="Regular", sampling_pct=0.25,
-    grad_step=0.1, iterations=_LINEAR_ITERATIONS, shrink_factors=_LINEAR_SHRINK,
+    init="center-of-mass", initial_transform=None,
+    metric="mattes", bins=32, sampling="Regular", sampling_pct=_LINEAR_SAMPLING_PCT,
+    grad_step=_LINEAR_GRAD_STEP, iterations=_LINEAR_ITERATIONS, shrink_factors=_LINEAR_SHRINK,
     smoothing_sigmas=_LINEAR_SMOOTH, smoothing_units="vox",
     use_float=True, winsorize=(0.005, 0.995), use_histogram_matching=False,
     mask=None, moving_mask=None, collapse_output_transforms=None,
@@ -96,7 +104,10 @@ def _linear_preset(
     reg = _new_reg(dim, output, warped_output, inverse_warped_output, use_float, winsorize,
                    use_histogram_matching, collapse_output_transforms, write_composite_transform,
                    random_seed, verbose, ants_path)
-    if init is not None:
+    # An explicit initial transform takes precedence over center-of-mass init.
+    if initial_transform is not None:
+        reg.add_initial_moving_transform(initial_transform)
+    elif init is not None:
         reg.initialize_from_images(fixed, moving, init=init)
     if mask is not None or moving_mask is not None:
         reg.set_masks(mask, moving_mask)
@@ -135,10 +146,10 @@ def affine(fixed, moving, output, **kwargs) -> AntsRegistration:
 def syn(
     fixed, moving, output, *,
     dim=3, warped_output=None, inverse_warped_output=None,
-    init="center-of-mass",
+    init="center-of-mass", initial_transform=None,
     # linear part (Rigid + Affine)
-    aff_metric="mattes", aff_bins=32, aff_sampling="Regular", aff_sampling_pct=0.25,
-    aff_grad_step=0.1, aff_iterations=_LINEAR_ITERATIONS, aff_shrink_factors=_LINEAR_SHRINK,
+    aff_metric="mattes", aff_bins=32, aff_sampling="Regular", aff_sampling_pct=_LINEAR_SAMPLING_PCT,
+    aff_grad_step=_LINEAR_GRAD_STEP, aff_iterations=_LINEAR_ITERATIONS, aff_shrink_factors=_LINEAR_SHRINK,
     aff_smoothing_sigmas=_LINEAR_SMOOTH,
     # SyN part
     syn_metric="mattes", syn_bins=32, syn_radius=4, syn_sampling=None, syn_sampling_pct=None,
@@ -153,7 +164,9 @@ def syn(
     reg = _new_reg(dim, output, warped_output, inverse_warped_output, use_float, winsorize,
                    use_histogram_matching, collapse_output_transforms, write_composite_transform,
                    random_seed, verbose, ants_path)
-    if init is not None:
+    if initial_transform is not None:
+        reg.add_initial_moving_transform(initial_transform)
+    elif init is not None:
         reg.initialize_from_images(fixed, moving, init=init)
     if mask is not None or moving_mask is not None:
         reg.set_masks(mask, moving_mask)
