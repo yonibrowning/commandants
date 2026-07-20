@@ -131,7 +131,9 @@ Defaults mirror ANTsPyX (single precision, Mattes MI, light winsorization) and
 every schedule/metric/step is an overridable argument — nothing hidden. Unlike a
 hand-built registration, the linear presets and `syn` **include the
 center-of-mass initialization by default**, so you won't get the identity-transform
-surprise from a missing `--initial-moving-transform`.
+surprise from a missing `--initial-moving-transform`. Worked example (incl. a
+memory-safe SyN and an affine→SyN-only warm-start):
+[`examples/using_presets.py`](examples/using_presets.py).
 
 ### In-memory images (SimpleITK)
 
