@@ -146,6 +146,24 @@ Previews never touch disk — `to_shell()` / `build_command()` render in-memory
 images as `<sitk:...>` placeholders. The same image object passed to several
 arguments is written only once.
 
+### Estimate memory / runtime before running
+
+Get a rough peak-memory (and weak runtime) estimate for a built registration
+*before* launching it — handy for sizing a SyN job:
+
+```python
+est = reg.estimate_resources(shape=(256, 256, 180), threads=8)  # or fixed=<path/SITK image>
+print(est.summary())
+est.peak_memory_bytes      # ~2.5 GiB here; drops to ~1.3 GiB with use_float=True
+est.per_stage              # per-stage breakdown (the SyN stage dominates)
+est.est_runtime_seconds    # very rough
+```
+
+The image dimensions come from the fixed image (inferred from your init/metric
+images, or pass `fixed=` / `shape=`). **This is a documented heuristic, not a
+measurement** — order-of-magnitude for planning, not a guarantee. See
+[`commandants/estimate.py`](src/commandants/estimate.py) for the model.
+
 ### Nothing is hidden
 
 Reach any flag the typed API doesn't model yet:

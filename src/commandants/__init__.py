@@ -29,6 +29,7 @@ from .core import (
     resolve_binary,
     version,
 )
+from .estimate import ResourceEstimate, estimate_registration
 from .install import (
     install_ants,
     installed_versions,
@@ -92,6 +93,9 @@ __all__ = [
     "uninstall_ants",
     "managed_bin_dir",
     "installed_versions",
+    # resource estimation
+    "estimate_registration",
+    "ResourceEstimate",
     # in-memory images + point I/O
     "TempWorkspace",
     "is_sitk_image",

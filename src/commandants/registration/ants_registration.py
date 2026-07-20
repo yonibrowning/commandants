@@ -250,6 +250,26 @@ class AntsRegistration(AntsCommand):
         args += ["--verbose", "1" if self.verbose else "0"]
         return args
 
+    def estimate_resources(
+        self,
+        fixed: Any = None,
+        shape: Optional[Sequence[int]] = None,
+        threads: int = 1,
+        rate: float = 6.0e8,
+    ):
+        """Estimate peak memory (and a rough runtime) for this registration.
+
+        Heuristic, not a measurement -- see :mod:`commandants.estimate`. Needs the
+        fixed image's voxel dimensions: inferred from the registration's init/metric
+        images, or pass ``fixed=<path/SimpleITK image>`` or ``shape=(x, y, z)``.
+
+        Returns a :class:`~commandants.estimate.ResourceEstimate`; print it or read
+        ``.peak_memory_bytes`` / ``.peak_memory_human`` / ``.est_runtime_seconds``.
+        """
+        from ..estimate import estimate_registration
+
+        return estimate_registration(self, fixed=fixed, shape=shape, threads=threads, rate=rate)
+
     def expected_transforms(self, cwd: str | os.PathLike[str] | None = None) -> dict:
         """Predict the transform files ANTs will write, and how to apply them.
 
