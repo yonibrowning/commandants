@@ -72,6 +72,15 @@ class CompletedAnts:
         """Return the path of a declared output without loading it."""
         return self.outputs[key]
 
+    def explain(self):
+        """Explain this run's return code (signal / exception / ANTs convention).
+
+        Returns a :class:`~commandants.exit_codes.ExitCodeExplanation`.
+        """
+        from ..exit_codes import explain_exit_code
+
+        return explain_exit_code(self.returncode)
+
 
 class AntsCommand:
     """Base class for all ANTs command wrappers.

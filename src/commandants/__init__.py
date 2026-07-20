@@ -30,6 +30,7 @@ from .core import (
     version,
 )
 from .estimate import ResourceEstimate, estimate_registration
+from .exit_codes import ExitCodeExplanation, explain_exit_code
 from .install import (
     install_ants,
     installed_versions,
@@ -96,6 +97,9 @@ __all__ = [
     # resource estimation
     "estimate_registration",
     "ResourceEstimate",
+    # exit-code interpretation
+    "explain_exit_code",
+    "ExitCodeExplanation",
     # in-memory images + point I/O
     "TempWorkspace",
     "is_sitk_image",

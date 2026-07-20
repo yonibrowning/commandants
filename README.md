@@ -164,6 +164,26 @@ images, or pass `fixed=` / `shape=`). **This is a documented heuristic, not a
 measurement** — order-of-magnitude for planning, not a guarantee. See
 [`commandants/estimate.py`](src/commandants/estimate.py) for the model.
 
+### Understanding exit codes (e.g. `-9`)
+
+ANTs has no big numbered error-code table — it exits `0`/`1` and puts detail in
+stderr; anything else is a **signal** or a **Windows exception**. `commandants`
+decodes them:
+
+```bash
+commandants explain -9      # or 137, -11, 3221225477, ...
+```
+
+```python
+result = reg.run(check=False)
+if result.returncode != 0:
+    print(result.explain().text())
+```
+
+`AntsRuntimeError` also embeds the decoding in its message. The big one: **`-9`
+(or `137`) is SIGKILL — almost always the out-of-memory killer or a cluster memory
+limit**, not an ANTs bug. Reach for `estimate_resources()` and `use_float=True`.
+
 ### Nothing is hidden
 
 Reach any flag the typed API doesn't model yet:

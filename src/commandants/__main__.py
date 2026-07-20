@@ -81,6 +81,13 @@ def _cmd_info(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_explain(args: argparse.Namespace) -> int:
+    from .exit_codes import explain_exit_code
+
+    print(explain_exit_code(int(args.code)).text())
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="commandants", description=__doc__.splitlines()[0])
     parser.add_argument("--version", action="version", version=f"commandants {__version__}")
@@ -112,6 +119,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_info = sub.add_parser("info", help="show the managed data directory")
     p_info.set_defaults(func=_cmd_info)
+
+    p_explain = sub.add_parser("explain", help="explain a process exit code (e.g. -9, 137)")
+    p_explain.add_argument("code", help="the exit/return code, e.g. -9 or 137")
+    p_explain.set_defaults(func=_cmd_explain)
 
     return parser
 
