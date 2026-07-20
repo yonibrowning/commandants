@@ -181,6 +181,40 @@ def test_expected_transforms_composite():
     assert info["inverse"] == ["reg_InverseComposite.h5"]
 
 
+def test_per_stage_moving_mask_only_on_last_stage():
+    reg = AntsRegistration(3, output="reg_")
+    reg.add_stage(Rigid(), MI("f", "m"), Convergence([100]), [2], [1])
+    reg.add_stage(Affine(), MI("f", "m"), Convergence([100]), [2], [1])
+    reg.add_stage(SyN(), MI("f", "m"), Convergence([50]), [1], [0],
+                  moving_mask="brain_moving.nii.gz")
+    argv = reg.build_command()
+    masks = [argv[i + 1] for i, t in enumerate(argv) if t == "--masks"]
+    # One --masks per stage, in order; NA placeholders for the unmasked stages.
+    assert masks == ["[NA,NA]", "[NA,NA]", "[NA,brain_moving.nii.gz]"]
+
+
+def test_per_stage_mask_falls_back_to_global():
+    reg = AntsRegistration(3, output="reg_")
+    reg.set_masks("global_fixed.nii", "global_moving.nii")
+    reg.add_stage(Rigid(), MI("f", "m"), Convergence([100]), [2], [1])
+    reg.add_stage(SyN(), MI("f", "m"), Convergence([50]), [1], [0],
+                  moving_mask="syn_moving.nii")  # overrides moving for this stage
+    argv = reg.build_command()
+    masks = [argv[i + 1] for i, t in enumerate(argv) if t == "--masks"]
+    # Rigid inherits the global pair; SyN uses its own moving mask + global fixed.
+    assert masks == ["[global_fixed.nii,global_moving.nii]", "[global_fixed.nii,syn_moving.nii]"]
+
+
+def test_global_masks_emitted_once_when_no_per_stage():
+    reg = AntsRegistration(3, output="reg_")
+    reg.set_masks(moving_mask="m.nii")  # moving-only global mask
+    reg.add_stage(Rigid(), MI("f", "m"), Convergence([100]), [2], [1])
+    reg.add_stage(SyN(), MI("f", "m"), Convergence([50]), [1], [0])
+    argv = reg.build_command()
+    masks = [argv[i + 1] for i, t in enumerate(argv) if t == "--masks"]
+    assert masks == ["[NA,m.nii]"]  # single global, NA for the unset fixed side
+
+
 def test_restrict_deformation_and_masks():
     reg = AntsRegistration(3, output="out_", restrict_deformation=[1, 1, 0])
     reg.set_masks("fmask.nii.gz", "mmask.nii.gz")

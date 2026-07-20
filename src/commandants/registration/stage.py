@@ -12,7 +12,7 @@ an intensity metric combined with a point-set constraint).
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Callable, List, Optional, Sequence
+from typing import Any, Callable, List, Optional, Sequence
 
 from ..core.params import bracket, str_resolve, xjoin
 from .metrics import Metric
@@ -65,6 +65,9 @@ class Stage:
     shrink_factors: Sequence[int]
     smoothing_sigmas: Sequence[float]
     smoothing_units: Optional[str] = "vox"
+    #: Optional metric masks for *this stage only* (path or SimpleITK image).
+    fixed_mask: Optional[Any] = None
+    moving_mask: Optional[Any] = None
 
     def __post_init__(self) -> None:
         if not self.metrics:

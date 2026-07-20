@@ -157,8 +157,16 @@ class AntsRegistration(AntsCommand):
         shrink_factors: Sequence[int],
         smoothing_sigmas: Sequence[float],
         smoothing_units: Optional[str] = "vox",
+        fixed_mask: Optional[Any] = None,
+        moving_mask: Optional[Any] = None,
     ) -> "AntsRegistration":
-        """Append a registration stage. ``metrics`` may be one metric or many."""
+        """Append a registration stage. ``metrics`` may be one metric or many.
+
+        ``fixed_mask`` / ``moving_mask`` restrict the metric for *this stage only*
+        (path or SimpleITK image). When any stage sets a mask, ANTs requires one
+        ``--masks`` per stage in order, so unmasked stages emit ``[NA,NA]``; a
+        stage with no mask of its own falls back to any global :meth:`set_masks`.
+        """
         metric_list = [metrics] if isinstance(metrics, Metric) else list(metrics)
         stage = Stage(
             transform=transform,
@@ -167,6 +175,8 @@ class AntsRegistration(AntsCommand):
             shrink_factors=shrink_factors,
             smoothing_sigmas=smoothing_sigmas,
             smoothing_units=smoothing_units,
+            fixed_mask=fixed_mask,
+            moving_mask=moving_mask,
         )
         self.stages.append(stage)
         return self
@@ -181,6 +191,13 @@ class AntsRegistration(AntsCommand):
         if self.warped_output is not None or self.inverse_warped_output is not None:
             return bracket(self.output, self.warped_output, self.inverse_warped_output)
         return str(self.output)
+
+    def _mask_bracket(self, fixed_mask: Any, moving_mask: Any) -> str:
+        """Build a ``[fixedMask,movingMask]`` arg, using ANTs' NA placeholder for
+        an unset side (so a moving-only mask is ``[NA,movingMask]``)."""
+        f = self._resolve(fixed_mask, "fixed_mask") if fixed_mask is not None else "NA"
+        m = self._resolve(moving_mask, "moving_mask") if moving_mask is not None else "NA"
+        return f"[{f},{m}]"
 
     def _build_args(self) -> List[str]:
         if not self.stages:
@@ -239,13 +256,23 @@ class AntsRegistration(AntsCommand):
                 rendered = bracket(path, True) if use_inverse else path
             args += ["--initial-moving-transform", rendered]
 
-        if self._fixed_mask is not None or self._moving_mask is not None:
-            fmask = self._resolve(self._fixed_mask, "fixed_mask") if self._fixed_mask is not None else None
-            mmask = self._resolve(self._moving_mask, "moving_mask") if self._moving_mask is not None else None
-            args += ["--masks", bracket(fmask, mmask)]
+        # Masks: ANTs takes either one global --masks (all stages) or one per
+        # stage in order (with [NA,NA] for unmasked stages). Use per-stage
+        # emission if any stage defines its own mask; otherwise a single global.
+        per_stage_masks = any(
+            (s.fixed_mask is not None or s.moving_mask is not None) for s in self.stages
+        )
+        global_masks = self._fixed_mask is not None or self._moving_mask is not None
+
+        if global_masks and not per_stage_masks:
+            args += ["--masks", self._mask_bracket(self._fixed_mask, self._moving_mask)]
 
         for stage in self.stages:
             args += stage.to_args(self._resolve)
+            if per_stage_masks:
+                fm = stage.fixed_mask if stage.fixed_mask is not None else self._fixed_mask
+                mm = stage.moving_mask if stage.moving_mask is not None else self._moving_mask
+                args += ["--masks", self._mask_bracket(fm, mm)]
 
         args += ["--verbose", "1" if self.verbose else "0"]
         return args
