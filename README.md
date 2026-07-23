@@ -264,6 +264,19 @@ apply.add_transform("out_0GenericAffine.mat")   # applied first (ANTs order)
 apply.run()
 ```
 
+> **Argument order — `input`/`reference`, not `fixed`/`moving`.** commandants uses
+> ANTs' own `antsApplyTransforms` terminology, which is **not** ANTsPyX's. The 2nd
+> arg is `input_image` (`-i`, the image whose pixels are warped) and the 3rd is
+> `reference_image` (`-r`, the grid/space of the output) — so applying a
+> moving→fixed transform is `AntsApplyTransforms(3, moving, fixed, out)`. ANTs uses
+> "input" (not "moving") on purpose: the input is often **not** the original moving
+> image — it may be a label map, another channel, or a point set. Coming from
+> ANTsPyX's `apply_transforms(fixed, moving, ...)`? The mapping is
+> **`moving → input_image`, `fixed → reference_image`**. Use keywords to be safe:
+> `AntsApplyTransforms(3, input_image=moving, reference_image=fixed, output=out)`.
+> (Registration is different: `antsRegistration` metrics *do* use fixed/moving, so
+> commandants' metrics take `(fixed, moving)` — each tool follows the CLI it wraps.)
+
 ### How output transforms are saved
 
 ANTs' transform-file naming trips everyone up. With `collapse_output_transforms`
